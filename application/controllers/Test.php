@@ -8,6 +8,9 @@ class Test extends CI_Controller
     {
         parent::__construct();
         $this->load->library('mpesa');
+        $this->load->helper('url');
+        $this->load->database();
+        $this->load->model('RequestModel');
     }
 
     public function c2b()
@@ -22,25 +25,45 @@ class Test extends CI_Controller
         if($status->ResponseDescription){
             echo json_encode($status);
         }
-
     }
 
     public function c2b1()
     {
-        echo json_encode($this->mpesa->STKPushSimulation(
+        $result = $this->mpesa->STKPushSimulation(
             "174379",
             "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919",
             "CustomerPayBillOnline",
             "1",
-            "254703703741",
+            "254708374149",
             "174379",
-            "254703703741",
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1",
+            "254708374149",
+            "".base_url("test/callback1")."",
+//            "http://6f21c7b5.ngrok.io/ci-mpesa/test/callback1",
             "ref",
             "please work",
-            "test"
-        ));
-        echo json_encode($this->mpesa->getDataFromCallback());
+            "test");
+        echo json_encode($result);
+        $table = 'transaction';
+        $data = array(
+            'MerchantRequestID' => $result->MerchantRequestID,
+            'CheckoutRequestID' => $result->CheckoutRequestID,
+            'ResponseCode' => $result->ResponseCode,
+            'ResponseDescription' => $result->ResponseDescription,
+            'CustomerMessage' => $result->CustomerMessage,
+        );
+        $this->RequestModel->insert($table,$data);
+
+        $file = 'mpesa_c2b1_log.txt'; //Please make sure that this file exists and is writable
+        if (file_exists($file)) {
+            $fh = fopen($file, 'a');
+        } else {
+            $fh = fopen($file, 'w');
+//            chmod($file, 755);
+        }
+        fwrite($fh, "\n====".date("d-m-Y H:i:s")."====\n");
+        fwrite($fh, json_encode($result)."\n");
+        fclose($fh);
+        $this->mpesa->getDataFromCallback();
     }
 
     public function b2c()
@@ -53,8 +76,8 @@ class Test extends CI_Controller
             "600540",
             "254708374149",
             "Endyear",
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1" ,
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1",
+            "".base_url("test/callback1")."",
+            "".base_url("test/callback1")."",
             ""));
     }
 
@@ -67,8 +90,8 @@ class Test extends CI_Controller
             "600540",
             "254708374149",
             "ref",
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1" ,
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1",
+            "".base_url("test/callback1")."",
+            "".base_url("test/callback1")."",
             "SettlingDebt",
             "BusinessPayBill",
             "4",
@@ -85,8 +108,8 @@ class Test extends CI_Controller
             "AG_20181231_00007945e7ed4426d8ce",
             "600540",
             "4",
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1" ,
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1",
+            "".site_url()."test/callback1" ,
+            "".base_url("test/callback1")."",
             "Status",
             ""
         ));
@@ -99,11 +122,29 @@ class Test extends CI_Controller
             $fh = fopen($file, 'a');
         } else {
             $fh = fopen($file, 'w');
-//            chmod($file, 755);
         }
         fwrite($fh, "\n====".date("d-m-Y H:i:s")."====\n");
-        fwrite($fh, $callbackJSONData."\n");
+        fwrite($fh, json_encode($callbackJSONData)."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->MerchantRequestID)."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->CallbackMetadata->Item[0])."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->CallbackMetadata->Item[1])."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->CallbackMetadata->Item[2])."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->CallbackMetadata->Item[3])."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->CallbackMetadata->Item[4])."\n");
+//        fwrite($fh, json_encode($callbackJSONData->Body->stkCallback->CallbackMetadata->Item[4]->Value)."\n");
         fclose($fh);
+        $where = array(
+            'MerchantRequestID' => $callbackJSONData->Body->stkCallback->MerchantRequestID,
+            'CheckoutRequestID' => $callbackJSONData->Body->stkCallback->CheckoutRequestID,
+        );
+        $data = array(
+            'ReceiptNumber'=>$callbackJSONData->Body->stkCallback->CallbackMetadata->Item[1]->Value,
+            'TransactionDate'=>$callbackJSONData->Body->stkCallback->CallbackMetadata->Item[3]->Value,
+            'PhoneNumber'=>$callbackJSONData->Body->stkCallback->CallbackMetadata->Item[4]->Value
+        );
+        $table = 'transaction';
+        $this->RequestModel->update($where, $data,$table);
+
     }
     public function checkbalance(){
         echo json_encode($this->mpesa->accountBalance(
@@ -113,8 +154,8 @@ class Test extends CI_Controller
             "600540",
             "4",
             "Checking Balance",
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1" ,
-            "http://c28ebe1d.ngrok.io/ci-mpesa/test/callback1"
+            "".base_url("test/callback1")."",
+            "".base_url("test/callback1").""
             ));
     }
 }

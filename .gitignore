@@ -4,6 +4,7 @@ application/logs/*
 
 application/config/mpesa.php
 mpesa_callback_log*
+mpesa_c2b1_log*
 .idea*
 .xml*
 

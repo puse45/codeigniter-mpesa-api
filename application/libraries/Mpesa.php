@@ -354,7 +354,8 @@ class Mpesa
     public function getDataFromCallback()
     {
         $callbackJSONData = file_get_contents('php://input');
-        return $callbackJSONData;
+        return json_decode($callbackJSONData);
+//        return $callbackJSONData;
     }
 
 
